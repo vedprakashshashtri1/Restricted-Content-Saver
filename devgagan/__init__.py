@@ -4,6 +4,7 @@ import time
 import aiohttp
 from pyrogram import Client
 from pyrogram.enums import ParseMode 
+from pyrogram.errors import FloodWait as PyrogramFloodWait
 from config import API_ID, API_HASH, BOT_TOKEN, STRING, MONGO_DB, DEFAULT_SESSION, OWNER_ID
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
@@ -100,6 +101,21 @@ async def start_telethon_client_safely():
             LOGGER.exception("Could not start Telethon downloader client; retrying in 30 seconds.")
             await asyncio.sleep(30)
 
+
+async def start_pyrogram_bot_safely():
+    """Keep the worker alive when Telegram throttles a fresh bot session."""
+    while True:
+        try:
+            await app.start()
+            return
+        except PyrogramFloodWait as error:
+            wait_seconds = max(int(getattr(error, "value", 60)), 1) + 1
+            LOGGER.warning(
+                "Telegram requested a %s-second Pyrogram authorization wait; retrying automatically.",
+                wait_seconds,
+            )
+            await asyncio.sleep(wait_seconds)
+
 botStartTime = time.time()
 
 app = Client(
@@ -142,7 +158,7 @@ async def setup_database():
 async def restrict_bot():
     global BOT_ID, BOT_NAME, BOT_USERNAME
     await setup_database()
-    await app.start()
+    await start_pyrogram_bot_safely()
     asyncio.create_task(start_telethon_client_safely())
     asyncio.create_task(register_bot_commands_safely())
     getme = await app.get_me()
