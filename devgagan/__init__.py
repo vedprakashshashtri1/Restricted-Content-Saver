@@ -5,7 +5,8 @@ import aiohttp
 from pyrogram import Client
 from pyrogram.enums import ParseMode 
 from config import API_ID, API_HASH, BOT_TOKEN, STRING, MONGO_DB, DEFAULT_SESSION, OWNER_ID
-from telethon.sync import TelegramClient
+from telethon import TelegramClient
+from telethon.errors import FloodWaitError
 from motor.motor_asyncio import AsyncIOMotorClient
 
 loop = asyncio.new_event_loop()
@@ -80,6 +81,25 @@ async def register_bot_commands_safely():
     except Exception:
         LOGGER.exception("Could not register Telegram bot commands.")
 
+
+async def start_telethon_client_safely():
+    """Start the downloader client without blocking the main bot on flood waits."""
+    while True:
+        try:
+            await sex.start(bot_token=BOT_TOKEN)
+            LOGGER.info("Telethon downloader client started.")
+            return
+        except FloodWaitError as error:
+            wait_seconds = max(int(error.seconds), 1) + 1
+            LOGGER.warning(
+                "Telegram requested a %s-second authorization wait; retrying automatically.",
+                wait_seconds,
+            )
+            await asyncio.sleep(wait_seconds)
+        except Exception:
+            LOGGER.exception("Could not start Telethon downloader client; retrying in 30 seconds.")
+            await asyncio.sleep(30)
+
 botStartTime = time.time()
 
 app = Client(
@@ -91,7 +111,8 @@ app = Client(
     parse_mode=ParseMode.MARKDOWN
 )
 
-sex = TelegramClient('sexrepo', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+# Imported by downloader modules. It is started in the background below.
+sex = TelegramClient('sexrepo', API_ID, API_HASH)
 
 if STRING:
     pro = Client("ggbot", api_id=API_ID, api_hash=API_HASH, session_string=STRING)
@@ -103,8 +124,6 @@ if DEFAULT_SESSION:
     userrbot = Client("userrbot", api_id=API_ID, api_hash=API_HASH, session_string=DEFAULT_SESSION)
 else:
     userrbot = None
-
-telethon_client = TelegramClient('telethon_session', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 # MongoDB setup
 tclient = AsyncIOMotorClient(MONGO_DB)
@@ -124,6 +143,7 @@ async def restrict_bot():
     global BOT_ID, BOT_NAME, BOT_USERNAME
     await setup_database()
     await app.start()
+    asyncio.create_task(start_telethon_client_safely())
     asyncio.create_task(register_bot_commands_safely())
     getme = await app.get_me()
     BOT_ID = getme.id
