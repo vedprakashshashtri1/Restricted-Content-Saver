@@ -56,7 +56,8 @@ async def register_bot_commands():
 
     endpoint = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
     updated = 0
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=15)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         for scope, language_code in targets:
             payload = {"commands": BOT_COMMANDS, "scope": scope}
             if language_code:
@@ -70,6 +71,14 @@ async def register_bot_commands():
                     )
                 updated += 1
     LOGGER.info("Registered %s commands across %s Telegram menu scopes.", len(BOT_COMMANDS), updated)
+
+
+async def register_bot_commands_safely():
+    """Sync menus without ever blocking or terminating bot startup."""
+    try:
+        await register_bot_commands()
+    except Exception:
+        LOGGER.exception("Could not register Telegram bot commands.")
 
 botStartTime = time.time()
 
@@ -115,10 +124,7 @@ async def restrict_bot():
     global BOT_ID, BOT_NAME, BOT_USERNAME
     await setup_database()
     await app.start()
-    try:
-        await register_bot_commands()
-    except Exception:
-        LOGGER.exception("Could not register Telegram bot commands.")
+    asyncio.create_task(register_bot_commands_safely())
     getme = await app.get_me()
     BOT_ID = getme.id
     BOT_USERNAME = getme.username
