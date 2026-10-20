@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -50,11 +51,12 @@ def load_streamlit_secrets() -> list[str]:
 @st.cache_resource
 def start_bot() -> subprocess.Popen[bytes]:
     """Start one bot worker for this Streamlit server process."""
+    environment = os.environ.copy()
+    environment["PYTHONUNBUFFERED"] = "1"
     return subprocess.Popen(
         [sys.executable, "-m", "devgagan"],
         cwd=Path(__file__).resolve().parent,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
+        env=environment,
     )
 
 
@@ -69,6 +71,8 @@ if missing:
     st.stop()
 
 process = start_bot()
+# Give immediate import/configuration failures time to reach the Cloud logs.
+time.sleep(2)
 return_code = process.poll()
 
 if return_code is None:
@@ -76,10 +80,11 @@ if return_code is None:
     st.metric("Worker PID", process.pid)
 else:
     st.error(f"Bot worker stopped with exit code {return_code}.")
-    st.info("Check the Streamlit app logs, correct the configuration, and reboot the app.")
+    st.info("Open Manage app → Logs to see the bot worker traceback.")
 
 st.write(f"Python: `{sys.version.split()[0]}`")
 st.warning(
     "Streamlit Community Cloud can sleep inactive apps. If you need a Telegram bot "
     "to run continuously, use an always-on worker host instead."
 )
+
