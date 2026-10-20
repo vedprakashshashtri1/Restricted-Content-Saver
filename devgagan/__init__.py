@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import time
+import aiohttp
 from pyrogram import Client
 from pyrogram.enums import ParseMode 
-from pyrogram.types import BotCommand
-from config import API_ID, API_HASH, BOT_TOKEN, STRING, MONGO_DB, DEFAULT_SESSION
+from config import API_ID, API_HASH, BOT_TOKEN, STRING, MONGO_DB, DEFAULT_SESSION, OWNER_ID
 from telethon.sync import TelegramClient
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -19,26 +19,57 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand("start", "Check I'm Alive ⚡️"),
-    BotCommand("batch", "Extract in bulk 🔥"),
-    BotCommand("settings", "Configure Your Settings ⚙️"),
-    BotCommand("cancel", "Cancel Ongoing Batch Process 🛑"),
-    BotCommand("login", "Login To Your Account 🔑"),
-    BotCommand("logout", "Logout Your Account 🔓"),
-    BotCommand("adl", "Download audio from 30+ sites 📩"),
-    BotCommand("dl", "Download videos from 30+ sites 🎊"),
-    BotCommand("transfer", "Gift premium to others 🎁"),
-    BotCommand("plan", "Check our premium plans 🗓️"),
-    BotCommand("speedtest", "Check The Server Speed 🏎️"),
-    BotCommand("stats", "Get Statistics Of The Bot 📊"),
-    BotCommand("lock", "Protect Your Channel From Extraction (Owner Only) 🔒"),
-    BotCommand("add", "Add User To Premium (Owner Only) ➕"),
-    BotCommand("rem", "Remove User From Premium (Owner Only) ‼️"),
-    BotCommand("freez", "Remove All Expired User (Owner Only) 🧊"),
-    BotCommand("gcast", "Send Message To All Users (Owner Only) 🌐"),
-    BotCommand("acast", "Send Message To All Users With Tag (Owner Only) 🌐"),
-    BotCommand("restart", "Restart The Bot (Owner Only) 👼"),
+    {"command": "start", "description": "Check I'm Alive ⚡️"},
+    {"command": "batch", "description": "Extract in bulk 🔥"},
+    {"command": "settings", "description": "Configure Your Settings ⚙️"},
+    {"command": "cancel", "description": "Cancel Ongoing Batch Process 🛑"},
+    {"command": "login", "description": "Login To Your Account 🔑"},
+    {"command": "logout", "description": "Logout Your Account 🔓"},
+    {"command": "adl", "description": "Download audio from 30+ sites 📩"},
+    {"command": "dl", "description": "Download videos from 30+ sites 🎊"},
+    {"command": "transfer", "description": "Gift premium to others 🎁"},
+    {"command": "plan", "description": "Check our premium plans 🗓️"},
+    {"command": "speedtest", "description": "Check The Server Speed 🏎️"},
+    {"command": "stats", "description": "Get Statistics Of The Bot 📊"},
+    {"command": "lock", "description": "Protect Your Channel From Extraction (Owner Only) 🔒"},
+    {"command": "add", "description": "Add User To Premium (Owner Only) ➕"},
+    {"command": "rem", "description": "Remove User From Premium (Owner Only) ‼️"},
+    {"command": "freez", "description": "Remove All Expired User (Owner Only) 🧊"},
+    {"command": "gcast", "description": "Send Message To All Users (Owner Only) 🌐"},
+    {"command": "acast", "description": "Send Message To All Users With Tag (Owner Only) 🌐"},
+    {"command": "restart", "description": "Restart The Bot (Owner Only) 👼"},
 ]
+
+
+async def register_bot_commands():
+    """Replace legacy command menus for the default, private and owner scopes."""
+    targets = [
+        ({"type": "default"}, None),
+        ({"type": "all_private_chats"}, None),
+    ]
+    for language_code in ("en", "hi", "ru"):
+        targets.append(({"type": "all_private_chats"}, language_code))
+    for owner_id in OWNER_ID:
+        targets.append(({"type": "chat", "chat_id": owner_id}, None))
+        for language_code in ("en", "hi", "ru"):
+            targets.append(({"type": "chat", "chat_id": owner_id}, language_code))
+
+    endpoint = f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands"
+    updated = 0
+    async with aiohttp.ClientSession() as session:
+        for scope, language_code in targets:
+            payload = {"commands": BOT_COMMANDS, "scope": scope}
+            if language_code:
+                payload["language_code"] = language_code
+            async with session.post(endpoint, json=payload) as response:
+                result = await response.json(content_type=None)
+                if response.status != 200 or not result.get("ok"):
+                    raise RuntimeError(
+                        f"Telegram rejected bot commands for {scope}/{language_code}: "
+                        f"{result.get('description', response.status)}"
+                    )
+                updated += 1
+    LOGGER.info("Registered %s commands across %s Telegram menu scopes.", len(BOT_COMMANDS), updated)
 
 botStartTime = time.time()
 
@@ -85,8 +116,7 @@ async def restrict_bot():
     await setup_database()
     await app.start()
     try:
-        await app.set_bot_commands(BOT_COMMANDS)
-        LOGGER.info("Registered %s Telegram bot commands.", len(BOT_COMMANDS))
+        await register_bot_commands()
     except Exception:
         LOGGER.exception("Could not register Telegram bot commands.")
     getme = await app.get_me()
