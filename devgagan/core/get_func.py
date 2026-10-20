@@ -589,7 +589,7 @@ user_caption_preferences = {}
 async def set_rename_command(user_id, custom_rename_tag):
     user_rename_preferences[str(user_id)] = custom_rename_tag
 
-get_user_rename_preference = lambda user_id: user_rename_preferences.get(str(user_id), '@ProToppers')
+get_user_rename_preference = lambda user_id: user_rename_preferences.get(str(user_id), '@NexonBots')
 
 async def set_caption_command(user_id, custom_caption):
     user_caption_preferences[str(user_id)] = custom_caption
@@ -1032,7 +1032,7 @@ def progress_callback(done, total, user_id):
         f"│ **__Speed:__** {speed_mbps:.2f} Mbps\n"
         f"│ **__ETA:__** {remaining_time_min:.2f} min\n"
         f"╰──────────────────╯\n\n"
-        f"**__Powered by @ProToppers__**"
+        f"**__Powered by @NexonBots__**"
     )
     
     # Update tracking variables for the user
@@ -1095,7 +1095,7 @@ def dl_progress_callback(done, total, user_id):
         f"│ **__Speed:__** {speed_mbps:.2f} Mbps\n"
         f"│ **__ETA:__** {remaining_time_min:.2f} min\n"
         f"╰──────────────────╯\n\n"
-        f"**__Powered by @ProToppers__**"
+        f"**__Powered by @NexonBots__**"
     )
     
     # Update tracking variables for the user

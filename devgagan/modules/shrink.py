@@ -74,7 +74,7 @@ async def token_handler(client, message):
         # Use the direct image URL instead of fetching from Telegram
         image_url = "https://i.ibb.co/tp8T6H16/photo-2025-05-25-07-19-09-7527365554189893660.jpg"
         
-        join_button = InlineKeyboardButton("Join Channel", url="https://t.me/ProToppers")
+        join_button = InlineKeyboardButton("Join Channel", url="https://t.me/NexonBots")
         premium = InlineKeyboardButton("🎁 Gᴇᴛ Pʀᴇᴍɪᴜᴍ 🎁", url="https://t.me/UncleChipssBot")   
         
         keyboard = InlineKeyboardMarkup([ 
